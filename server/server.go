@@ -4,27 +4,34 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sync"
 	"tcp/utils"
 )
 
 type Server struct {
 	port int
-	wg   sync.WaitGroup
+	conn net.Conn
 }
 
 func NewServer(port int) *Server {
 	return &Server{port: port}
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
-	defer s.wg.Done()
+// Close Disconnect current client
+func (c *Server) Close() {
+	err := c.conn.Close()
+
+	if err != nil {
+		return
+	}
+}
+
+func (s *Server) handleConnection() {
+	defer s.conn.Close()
 
 	for {
 		// Reading the size of the incoming packet
 		sizeBuf := make([]byte, 4)
-		_, err := conn.Read(sizeBuf)
+		_, err := s.conn.Read(sizeBuf)
 		if err != nil {
 			fmt.Println("Error reading size:", err)
 			return
@@ -35,7 +42,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		// Reading the packet itself
 		packetBuf := make([]byte, packetSize)
-		_, err = conn.Read(packetBuf)
+		_, err = s.conn.Read(packetBuf)
 		if err != nil {
 			fmt.Println("Error reading packet:", err)
 			return
@@ -52,10 +59,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 		// Send response size first
 		responseSize := make([]byte, 4)
 		binary.BigEndian.PutUint32(responseSize, uint32(len(encodedResponse)))
-		conn.Write(responseSize)
+		s.conn.Write(responseSize)
 
 		// Send the actual response
-		conn.Write(encodedResponse)
+		s.conn.Write(encodedResponse)
 	}
 }
 
@@ -70,12 +77,14 @@ func (s *Server) Connect() {
 
 	fmt.Println("Server is listening on port 8080...")
 	for {
-		conn, err := listener.Accept()
+		var err error
+		s.conn, err = listener.Accept()
+
 		if err != nil {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
 
-		go s.handleConnection(conn)
+		go s.handleConnection()
 	}
 }
