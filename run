@@ -1,0 +1,15 @@
+#!/bin/bash
+
+case $1 in
+  "test")
+    go test ./...
+    ;;
+
+  "app")
+    go run main.go
+    ;;
+
+  *)
+    echo "Input wrong"
+    ;;
+esac
